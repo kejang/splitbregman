@@ -327,7 +327,7 @@ class SplitBregman():
             gpu_holding=True,
             gpu_solver=True):
 
-        ndim = data_stack[0].ndim
+        ndim = len(self.directions)
 
         if gpu_derivative:
             FirstDerivative = FirstDerivativeCUDA
@@ -436,10 +436,6 @@ class SplitBregman():
 
         else:
             use_spatial_tv = False
-            Ds = None
-            DtDs = None
-            ds_stack = None
-            bs_stack = None
 
         if lam_t > 0:
             use_time_tv = True
@@ -476,10 +472,6 @@ class SplitBregman():
 
         else:
             use_time_tv = False
-            D_t = None
-            DtD_t = None
-            dt_stack = None
-            bt_stack = None
 
         if gam > 0:
             use_spatial_wavelet = True
@@ -504,9 +496,6 @@ class SplitBregman():
 
         else:
             use_spatial_wavelet = False
-            W = None
-            w_stack = None
-            bw_stack = None
 
         if gam_t > 0:
             use_time_wavelet = True
@@ -536,12 +525,8 @@ class SplitBregman():
 
         else:
             use_time_wavelet = False
-            W_t = None
-            wt_stack = None
-            bwt_stack = None
 
         if use_time_tv:
-            HtHs = None
             if gpu_solver:
                 HtHStacked = HtHStackedCupy(
                     self.model_stack,
@@ -569,7 +554,6 @@ class SplitBregman():
                     self.stream
                 )
         else:
-            HtHStacked = None
             HtHs = []
             for stack_ind in range(len(self.model_stack)):
                 model_t = self.model_stack[stack_ind]
