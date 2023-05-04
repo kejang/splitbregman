@@ -764,8 +764,10 @@ class SplitBregman():
                                     x0=d_u,
                                     maxiter=niter_solver
                                 )[0]
+
                             d_u_stack = cupy.array_split(d_u, self.nt)
                             d_u = None
+                            d_Hty = None
                     else:
                         if solver == 'gmres':
                             h_u = gmres_scipy(
@@ -781,8 +783,10 @@ class SplitBregman():
                                 x0=h_u,
                                 maxiter=niter_solver
                             )[0]
+
                         h_u_stack = np.array_split(h_u, self.nt)
                         h_u = None
+                        h_Hty = None
 
                     if gpu_holding:
                         if gpu_solver:
