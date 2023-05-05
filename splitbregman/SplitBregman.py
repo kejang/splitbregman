@@ -300,7 +300,9 @@ class SplitBregman():
         else:
             self.dtype = 'float32'
 
-        if len(sz_im) == 2:
+        if len(sz_im) == 1:
+            self.directions = ['x']
+        elif len(sz_im) == 2:
             self.directions = ['x', 'y']
         else:
             self.directions = ['x', 'y', 'z']
