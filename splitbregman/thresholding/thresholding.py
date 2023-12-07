@@ -41,6 +41,22 @@ for gpu_id in range(n_devices):
             src_soft_thresh_real, "soft_thresh_real"
         )
 
+src_fn_soft_thresh_real_ratio = module_path.joinpath(
+    "cuda", "soft_thresh_real_ratio.cu"
+)
+
+with open(src_fn_soft_thresh_real_ratio, "r") as fp:
+    contents = fp.readlines()
+    src_soft_thresh_real_ratio = "".join(c for c in contents)
+
+soft_thresh_real_ratio = [None] * n_devices
+
+for gpu_id in range(n_devices):
+    with cupy.cuda.Device(gpu_id):
+        soft_thresh_real_ratio[gpu_id] = cupy.RawKernel(
+            src_soft_thresh_real_ratio, "soft_thresh_real_ratio"
+        )
+
 src_fn_soft_thresh_complex = module_path.joinpath("cuda",
                                                   "soft_thresh_complex.cu")
 
@@ -87,6 +103,47 @@ def soft_thresholding(x, thresh, gpu_id=0, stream=None, n_threads=256):
     if stream is None:
         with cupy.cuda.Device(gpu_id):
             stream = cupy.cuda.stream.Stream(ptds=True)
+
+    with cupy.cuda.Device(gpu_id), stream as stream:
+        kernel[gpu_id](
+            grd,
+            blk,
+            args,
+            stream=stream
+        )
+
+    if xp == np:    # return as numpy array
+        x_thresh = from_device_array(
+            d_x, gpu_id=gpu_id, stream=stream
+        ).astype(x.dtype)
+    else:
+        x_thresh = d_x
+
+    if ravel:
+        return x_thresh.reshape(x.shape)
+    else:
+        return x_thresh
+
+
+def soft_thresholding_ratio(x, thresh, gpu_id=0, stream=None, n_threads=256):
+    """Returns max(s - thresh, 0) / s for Split Bregman TV recon."""
+
+    if stream is None:
+        with cupy.cuda.Device(gpu_id):
+            stream = cupy.cuda.stream.Stream(ptds=True)
+
+    xp = cupy.get_array_module(x)
+    kernel = soft_thresh_real_ratio
+
+    if x.ndim == 1:
+        ravel = False
+    else:
+        ravel = True
+
+    d_x = to_device_array(x, gpu_id=gpu_id, stream=stream, ravel=ravel)
+    args = (d_x, np.float32(thresh), np.ulonglong(d_x.size))
+    blk = (int(n_threads), 1, 1)
+    grd = (int((d_x.size + n_threads - 1.0) / n_threads), 1, 1)
 
     with cupy.cuda.Device(gpu_id), stream as stream:
         kernel[gpu_id](
