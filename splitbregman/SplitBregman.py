@@ -20,9 +20,7 @@ def clean_all_gpu_mem():
 
 
 class _GradModel(LinearOperator):
-
     def __init__(self, model, DtDs, mu, lams, gam, gpu_id, stream):
-
         self.shape = DtDs[0].shape
         self.dtype = DtDs[0].dtype
 
@@ -35,36 +33,26 @@ class _GradModel(LinearOperator):
         self.stream = stream
 
     def run(self, x):
-
         with cupy.cuda.Device(self.gpu_id), self.stream as _:
-            y = 0.5*self.mu*self.model.rmatvec(self.model.matvec(x))
+            y = 0.5 * self.mu * self.model.rmatvec(self.model.matvec(x))
 
             for lam, DtD in zip(self.lams, self.DtDs):
-                y += 0.5*lam*DtD.matvec(x)
+                y += 0.5 * lam * DtD.matvec(x)
 
             if self.gam > 0:
-                y += 0.5*self.gam*x
+                y += 0.5 * self.gam * x
 
         return y
 
     def _matvec(self, x):
-
         return self.run(x)
 
     def _rmatvec(self, x):
-
         return self.run(x)
 
 
-class SplitBregman():
-
-    def __init__(
-            self,
-            model,
-            sz_im,
-            edge=False,
-            economize_gpu=False):
-
+class SplitBregman:
+    def __init__(self, model, sz_im, edge=False, economize_gpu=False):
         self.model = model
         self.sz_im = sz_im
         self.gpu_id = model.gpu_id
@@ -74,9 +62,9 @@ class SplitBregman():
         is_complex = np.iscomplexobj(np.ones((1,), dtype=model.dtype))
 
         if len(sz_im) == 2:
-            directions = ['x', 'y']
+            directions = ["x", "y"]
         else:
-            directions = ['x', 'y', 'z']
+            directions = ["x", "y", "z"]
 
         self.Ds = [
             FirstDerivative(
@@ -105,25 +93,24 @@ class SplitBregman():
         ]
 
     def __del__(self):
-
         self.Ds = None
         self.DtDs = None
 
     def run(
-            self,
-            data,
-            mu,
-            lams,
-            gam=0,
-            init=None,
-            niter_inner=2,
-            niter_outer=100,
-            niter_solver=4,
-            wavelet_name='',
-            wavelet_full=False,
-            show=False,
-            solver='cg'):
-
+        self,
+        data,
+        mu,
+        lams,
+        gam=0,
+        init=None,
+        niter_inner=2,
+        niter_outer=100,
+        niter_solver=4,
+        wavelet_name="",
+        wavelet_full=False,
+        show=False,
+        solver="cg",
+    ):
         if self.economize_gpu:
             return self.run_economize_gpu(
                 data,
@@ -136,8 +123,8 @@ class SplitBregman():
                 niter_solver,
                 wavelet_name,
                 wavelet_full,
-                show,
-                solver)
+                solver,
+            )
         else:
             return self.run_full_gpu(
                 data,
@@ -151,30 +138,31 @@ class SplitBregman():
                 wavelet_name,
                 wavelet_full,
                 show,
-                solver)
+                solver,
+            )
 
     def run_full_gpu(
-            self,
-            data,
-            mu,
-            lams,
-            gam,
-            init,
-            niter_inner,
-            niter_outer,
-            niter_solver,
-            wavelet_name,
-            wavelet_full,
-            show,
-            solver):
-
+        self,
+        data,
+        mu,
+        lams,
+        gam,
+        init,
+        niter_inner,
+        niter_outer,
+        niter_solver,
+        wavelet_name,
+        wavelet_full,
+        show,
+        solver,
+    ):
         f = to_device_array(
             data,
             ravel=True,
             gpu_id=self.gpu_id,
             stream=self.stream,
-            dtype_real='float32',
-            dtype_complex='complex64'
+            dtype_real="float32",
+            dtype_complex="complex64",
         )
 
         if init is None:
@@ -185,8 +173,8 @@ class SplitBregman():
                 ravel=True,
                 gpu_id=self.gpu_id,
                 stream=self.stream,
-                dtype_real='float32',
-                dtype_complex='complex64'
+                dtype_real="float32",
+                dtype_complex="complex64",
             )
 
         n_dims = len(lams)
@@ -211,13 +199,7 @@ class SplitBregman():
             use_wavelet = False
 
         grad_model = _GradModel(
-            self.model,
-            self.DtDs,
-            mu,
-            lams,
-            gam,
-            self.gpu_id,
-            self.stream
+            self.model, self.DtDs, mu, lams, gam, self.gpu_id, self.stream
         )
 
         for _outer in range(niter_outer):
@@ -226,20 +208,19 @@ class SplitBregman():
                     u_old = u.copy()
 
             for _inner in range(niter_inner):
-
                 # Step 1 (update u)
 
                 with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    grad_b = 0.5*mu*self.model.rmatvec(f)
+                    grad_b = 0.5 * mu * self.model.rmatvec(f)
                     for lam, d, b, D in zip(lams, ds, bs, self.Ds):
-                        grad_b += 0.5*lam*(D.rmatvec(d - b))
+                        grad_b += 0.5 * lam * (D.rmatvec(d - b))
 
                     if use_wavelet:
                         w_minus_bw = w - bw
-                        grad_b += 0.5*gam*W.rmatvec(w_minus_bw)
+                        grad_b += 0.5 * gam * W.rmatvec(w_minus_bw)
 
                 with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    if solver == 'gmres':
+                    if solver == "gmres":
                         u = gmres(
                             grad_model, grad_b, x0=u, maxiter=niter_solver
                         )[0]
@@ -253,24 +234,21 @@ class SplitBregman():
                 with cupy.cuda.Device(self.gpu_id), self.stream as stream:
                     Du_bs = [D.matvec(u) + b for D, b in zip(self.Ds, bs)]
 
-                    s = cupy.abs(Du_bs[0])**2
+                    s = cupy.abs(Du_bs[0]) ** 2
                     for Du_b in Du_bs[1:]:
-                        s += cupy.abs(Du_b)**2
+                        s += cupy.abs(Du_b) ** 2
 
                     s = cupy.sqrt(s) + 1e-15
 
                 s_ts = [
                     soft_thresholding(
-                        s,
-                        1.0/lam,
-                        gpu_id=self.gpu_id,
-                        stream=stream
+                        s, 1.0 / lam, gpu_id=self.gpu_id, stream=stream
                     )
                     for lam in lams
                 ]
 
                 with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    ds = [Du_b*s_t/s for Du_b, s_t in zip(Du_bs, s_ts)]
+                    ds = [Du_b * s_t / s for Du_b, s_t in zip(Du_bs, s_ts)]
 
                 if use_wavelet:
                     W_u = W.matvec(u)
@@ -278,7 +256,7 @@ class SplitBregman():
                     with cupy.cuda.Device(self.gpu_id), self.stream as _:
                         w = soft_thresholding(
                             W_u + bw,
-                            1.0/gam,
+                            1.0 / gam,
                             gpu_id=self.gpu_id,
                             stream=stream
                         )
@@ -301,41 +279,55 @@ class SplitBregman():
             return u
 
     def run_economize_gpu(
-            self,
+        self,
+        data,
+        mu,
+        lams,
+        gam,
+        init,
+        niter_inner,
+        niter_outer,
+        niter_solver,
+        wavelet_name,
+        wavelet_full,
+        solver,
+    ):
+
+        f = to_device_array(
             data,
-            mu,
-            lams,
-            gam,
-            init,
-            niter_inner,
-            niter_outer,
-            niter_solver,
-            wavelet_name,
-            wavelet_full,
-            show,
-            solver):
-
-        f = from_device_array(data, self.gpu_id, self.stream).ravel()
-
-        if np.iscomplexobj(f):
-            f = f.astype('complex64')
-        else:
-            f = f.astype('float32')
+            ravel=True,
+            gpu_id=self.gpu_id,
+            stream=self.stream,
+            dtype_real="float32",
+            dtype_complex="complex64",
+        )
 
         if init is None:
-            h_u = self.model.rmatvec(f)
+            u = self.model.rmatvec(f)
         else:
-            h_u = from_device_array(init, self.gpu_id, self.stream).ravel()
+            u = to_device_array(
+                init,
+                ravel=True,
+                gpu_id=self.gpu_id,
+                stream=self.stream,
+                dtype_real="float32",
+                dtype_complex="complex64",
+            )
 
-        if np.iscomplexobj(h_u):
-            h_u = h_u.astype('complex64')
+        grad_b_0 = 0.5 * mu * self.model.rmatvec(f)
+        with cupy.cuda.Device(self.gpu_id), self.stream as _:
+            f = None
+
+        if np.iscomplexobj(data):
+            dtype = np.complex64
         else:
-            h_u = h_u.astype('float32')
+            dtype = np.float32
 
         n_dims = len(lams)
-
-        ds = [np.zeros(h_u.size, dtype=h_u.dtype) for _ in range(n_dims)]
-        bs = [np.zeros(h_u.size, dtype=h_u.dtype) for _ in range(n_dims)]
+        ds = np.zeros((n_dims, u.size), dtype=dtype)
+        bs = np.zeros((n_dims, u.size), dtype=dtype)
+        Du_bs = np.zeros((n_dims, u.size), dtype=dtype)
+        s_ts = np.zeros((n_dims, u.size), dtype=dtype)
 
         if wavelet_name and (gam > 0):
             use_wavelet = True
@@ -346,113 +338,96 @@ class SplitBregman():
                 stream=self.stream,
                 full=wavelet_full,
             )
+            h_u = from_device_array(u, self.gpu_id, self.stream)
             w = W.matvec(h_u)
-            bw = np.zeros((W.shape[0],), dtype=h_u.dtype)
+            bw = np.zeros((W.shape[0],), dtype=dtype)
         else:
             use_wavelet = False
 
         grad_model = _GradModel(
-            self.model,
-            self.DtDs,
-            mu,
-            lams,
-            gam,
-            self.gpu_id,
-            self.stream
+            self.model, self.DtDs, mu, lams, gam, self.gpu_id, self.stream
         )
 
         for _outer in range(niter_outer):
-            if show:
-                h_u_old = h_u.copy()
-
             for _inner in range(niter_inner):
-
                 # Step 1 (update d_u)
 
-                h_grad_b = 0.5*mu*self.model.rmatvec(f)
+                with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                    grad_b = grad_b_0.copy()
+
                 for lam, d, b, D in zip(lams, ds, bs, self.Ds):
-                    h_grad_b += 0.5*lam*(D.rmatvec(d - b))
+                    d_minus_b = to_device_array(
+                        d - b,
+                        ravel=True,
+                        gpu_id=self.gpu_id,
+                        stream=self.stream,
+                        dtype_real="float32",
+                        dtype_complex="complex64",
+                    )
+                    grad_b += 0.5 * lam * (D.rmatvec(d_minus_b))
 
                 if use_wavelet:
                     w_minus_bw = w - bw
-                    h_grad_b += 0.5*gam*W.rmatvec(w_minus_bw)
-
-                with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    d_u = to_device_array(
-                        h_u,
+                    grad_b += 0.5 * gam * to_device_array(
+                        W.rmatvec(w_minus_bw),
+                        ravel=True,
                         gpu_id=self.gpu_id,
                         stream=self.stream,
-                        dtype_real='float32',
-                        dtype_complex='complex64'
-                    )
-
-                    d_grad_b = to_device_array(
-                        h_grad_b,
-                        gpu_id=self.gpu_id,
-                        stream=self.stream,
-                        dtype_real='float32',
-                        dtype_complex='complex64'
+                        dtype_real="float32",
+                        dtype_complex="complex64",
                     )
 
                 with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    if solver == 'gmres':
-                        d_u = gmres(
-                            grad_model, d_grad_b, x0=d_u, maxiter=niter_solver
+                    if solver == "gmres":
+                        u = gmres(
+                            grad_model, grad_b, x0=u, maxiter=niter_solver
                         )[0]
                     else:
-                        d_u = cg(
-                            grad_model, d_grad_b, x0=d_u, maxiter=niter_solver
+                        u = cg(
+                            grad_model, grad_b, x0=u, maxiter=niter_solver
                         )[0]
-
-                with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    h_u = from_device_array(d_u, self.gpu_id, self.stream)
 
                 # Step 2 (update d)
 
-                Du_bs = [D.matvec(h_u) + b for D, b in zip(self.Ds, bs)]
+                for i in range(n_dims):
+                    Du_bs[i] = bs[i] + from_device_array(
+                        self.Ds[i].matvec(u),
+                        self.gpu_id,
+                        self.stream
+                    )
 
-                s = np.abs(Du_bs[0])**2
-                for Du_b in Du_bs[1:]:
-                    s += np.abs(Du_b)**2
+                s = np.sqrt(np.sum(np.abs(Du_bs) ** 2, axis=0))
+                s += np.float32(1e-15)
 
-                s = np.sqrt(s) + 1e-15
-
-                s_ts = [
-                    soft_thresholding(
+                for i in range(n_dims):
+                    s_ts[i] = soft_thresholding(
                         s,
-                        1.0/lam,
+                        1.0 / lams[i],
                         gpu_id=self.gpu_id,
                         stream=self.stream
                     )
-                    for lam in lams
-                ]
 
-                ds = [Du_b*s_t/s for Du_b, s_t in zip(Du_bs, s_ts)]
+                ds = Du_bs * (s_ts / s)
 
                 if use_wavelet:
+                    with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                        h_u = from_device_array(u, self.gpu_id, self.stream)
                     W_u = W.matvec(h_u)
                     w = soft_thresholding(
                         W_u + bw,
-                        1.0/gam,
+                        1.0 / gam,
                         gpu_id=self.gpu_id,
                         stream=self.stream
                     )
 
             # Bregman update
 
-            bs = [Du_b - d for Du_b, d in zip(Du_bs, ds)]
+            bs = Du_bs - ds
 
             if use_wavelet:
                 bw += W_u - w
 
-            if show:
-                print(np.linalg.norm(h_u - h_u_old))
-
         if cupy.get_array_module(data) == np:
-            return h_u
+            return from_device_array(u, self.gpu_id, self.stream)
         else:
-            return to_device_array(h_u,
-                                   gpu_id=self.gpu_id,
-                                   stream=self.stream,
-                                   dtype_real='float32',
-                                   dtype_complex='complex64')
+            return u
