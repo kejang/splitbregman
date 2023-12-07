@@ -116,7 +116,6 @@ class SplitBregman:
         niter_solver=4,
         wavelet_name="",
         wavelet_full=False,
-        show=False,
         solver="cg",
     ):
         if self.economize_gpu:
@@ -145,7 +144,6 @@ class SplitBregman:
                 niter_solver,
                 wavelet_name,
                 wavelet_full,
-                show,
                 solver,
             )
 
@@ -161,9 +159,14 @@ class SplitBregman:
         niter_solver,
         wavelet_name,
         wavelet_full,
-        show,
         solver,
     ):
+
+        if len(lams) == 1:
+            is_lam_scalar = True
+        else:
+            is_lam_scalar = all([np.isclose(lam, lams[0]) for lam in lams[1:]])
+
         f = to_device_array(
             data,
             ravel=True,
@@ -175,6 +178,7 @@ class SplitBregman:
 
         if init is None:
             u = self.model.rmatvec(f)
+            grad_b_init = 0.5 * mu * u
         else:
             u = to_device_array(
                 init,
@@ -184,10 +188,17 @@ class SplitBregman:
                 dtype_real="float32",
                 dtype_complex="complex64",
             )
+            grad_b_init = 0.5 * mu * self.model.rmatvec(f)
+
+        with cupy.cuda.Device(self.gpu_id), self.stream as _:
+            f = None
 
         with cupy.cuda.Device(self.gpu_id), self.stream as _:
             ds = [cupy.zeros(u.size, dtype=u.dtype) for _ in range(self.ndim)]
             bs = [cupy.zeros(u.size, dtype=u.dtype) for _ in range(self.ndim)]
+            if not is_lam_scalar:
+                s_ts = [cupy.zeros(u.size, dtype='float32')
+                        for _ in range(self.ndim)]
 
         if wavelet_name and (gam > 0):
             use_wavelet = True
@@ -209,15 +220,11 @@ class SplitBregman:
         )
 
         for _outer in range(niter_outer):
-            if show:
-                with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    u_old = u.copy()
-
             for _inner in range(niter_inner):
                 # Step 1 (update u)
 
                 with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    grad_b = 0.5 * mu * self.model.rmatvec(f)
+                    grad_b = grad_b_init.copy()
                     for lam, d, b, D in zip(lams, ds, bs, self.Ds):
                         grad_b += 0.5 * lam * (D.rmatvec(d - b))
 
@@ -243,18 +250,30 @@ class SplitBregman:
                     s = cupy.abs(Du_bs[0]) ** 2
                     for Du_b in Du_bs[1:]:
                         s += cupy.abs(Du_b) ** 2
+                    s = cupy.sqrt(s)
 
-                    s = cupy.sqrt(s) + 1e-15
-
-                s_ts = [
-                    soft_thresholding(
-                        s, 1.0 / lam, gpu_id=self.gpu_id, stream=stream
+                if is_lam_scalar:
+                    s_ts = soft_thresholding_ratio(
+                        s,
+                        1.0 / lams[0],
+                        gpu_id=self.gpu_id,
+                        stream=self.stream
                     )
-                    for lam in lams
-                ]
+                else:
+                    for i in range(self.ndim):
+                        s_ts[i] = soft_thresholding_ratio(
+                            s,
+                            1.0 / lams[i],
+                            gpu_id=self.gpu_id,
+                            stream=self.stream
+                        )
 
-                with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    ds = [Du_b * s_t / s for Du_b, s_t in zip(Du_bs, s_ts)]
+                if is_lam_scalar:
+                    with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                        ds = [Du_b * s_ts for Du_b in Du_bs]
+                else:
+                    with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                        ds = [Du_b * s_t for Du_b, s_t in zip(Du_bs, s_ts)]
 
                 if use_wavelet:
                     W_u = W.matvec(u)
@@ -274,10 +293,6 @@ class SplitBregman:
 
                 if use_wavelet:
                     bw += W_u - w
-
-            if show:
-                with cupy.cuda.Device(self.gpu_id), self.stream as _:
-                    print(cupy.linalg.norm(u - u_old))
 
         if cupy.get_array_module(data) == np:
             return from_device_array(u, self.gpu_id, self.stream)
@@ -340,9 +355,9 @@ class SplitBregman:
         Du_bs = np.zeros((self.ndim, u.size), dtype=dtype)
 
         if is_lam_scalar:
-            s_ts = np.zeros(u.size, dtype=dtype)
+            s_ts = np.zeros(u.size, dtype='float32')
         else:
-            s_ts = np.zeros((self.ndim, u.size), dtype=dtype)
+            s_ts = np.zeros((self.ndim, u.size), dtype='float32')
 
         if wavelet_name and (gam > 0):
             use_wavelet = True
