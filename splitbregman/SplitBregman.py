@@ -15,11 +15,22 @@ from .WaveletOperator import WaveletOperator
 
 logger = logging.getLogger(__name__)
 
-mempool = cupy.get_default_memory_pool()
+n_devices = cupy.cuda.runtime.getDeviceCount()
+mempools = [[] for _ in range(n_devices)]
+pinned_mempools = [[] for _ in range(n_devices)]
+for gpu_id in range(n_devices):
+    with cupy.cuda.Device(gpu_id):
+        mempools[gpu_id] = cupy.cuda.MemoryPool()
+        cupy.cuda.set_allocator(mempools[gpu_id].malloc)
+        pinned_mempools[gpu_id] = cupy.cuda.PinnedMemoryPool()
+        cupy.cuda.set_pinned_memory_allocator(pinned_mempools[gpu_id].malloc)
 
 
-def clean_all_gpu_mem():
-    mempool.free_all_blocks()
+def clean_up_gpu(gpu_id):
+
+    with cupy.cuda.Device(gpu_id):
+        mempools[gpu_id].free_all_blocks()
+        pinned_mempools[gpu_id].free_all_blocks()
 
 
 class _GradModel(LinearOperator):
@@ -178,7 +189,8 @@ class SplitBregman:
 
         if init is None:
             u = self.model.rmatvec(f)
-            grad_b_init = 0.5 * mu * u
+            with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                grad_b_init = 0.5 * mu * u
         else:
             u = to_device_array(
                 init,
@@ -188,7 +200,9 @@ class SplitBregman:
                 dtype_real="float32",
                 dtype_complex="complex64",
             )
-            grad_b_init = 0.5 * mu * self.model.rmatvec(f)
+            grad_b_init = self.model.rmatvec(f)
+            with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                grad_b_init *= 0.5 * mu
 
         with cupy.cuda.Device(self.gpu_id), self.stream as _:
             f = None
@@ -330,7 +344,8 @@ class SplitBregman:
 
         if init is None:
             u = self.model.rmatvec(f)
-            grad_b_init = 0.5 * mu * u
+            with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                grad_b_init = 0.5 * mu * u
         else:
             u = to_device_array(
                 init,
@@ -340,7 +355,9 @@ class SplitBregman:
                 dtype_real="float32",
                 dtype_complex="complex64",
             )
-            grad_b_init = 0.5 * mu * self.model.rmatvec(f)
+            grad_b_init = self.model.rmatvec(f)
+            with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                grad_b_init *= 0.5 * mu
 
         with cupy.cuda.Device(self.gpu_id), self.stream as _:
             f = None
@@ -395,18 +412,21 @@ class SplitBregman:
                         dtype_real="float32",
                         dtype_complex="complex64",
                     )
-                    grad_b += 0.5 * lam * (D.rmatvec(d_minus_b))
+                    with cupy.cuda.Device(self.gpu_id), self.stream as _:
+                        d_minus_b *= 0.5 * lam
+                        grad_b += D.rmatvec(d_minus_b)
 
                 if use_wavelet:
                     w_minus_bw = w - bw
-                    grad_b += 0.5 * gam * to_device_array(
-                        W.rmatvec(w_minus_bw),
-                        ravel=True,
-                        gpu_id=self.gpu_id,
-                        stream=self.stream,
-                        dtype_real="float32",
-                        dtype_complex="complex64",
-                    )
+                    with cupy.cuda.Device(self.gpu_id), self.stream as stream:
+                        grad_b += 0.5 * gam * to_device_array(
+                            W.rmatvec(w_minus_bw),
+                            ravel=True,
+                            gpu_id=self.gpu_id,
+                            stream=stream,
+                            dtype_real="float32",
+                            dtype_complex="complex64",
+                        )
 
                 with cupy.cuda.Device(self.gpu_id), self.stream as _:
                     if solver == "gmres":
