@@ -25,6 +25,12 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+splitbregman = ["thresholding/cuda/*.cu", "derivative/cuda/*.cu"]
+
 [project.urls]
 Homepage = "https://github.com/kejang/splitbregman"
 Issues = "https://github.com/kejang/splitbregman/issues"

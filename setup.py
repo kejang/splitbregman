@@ -34,4 +34,10 @@ setuptools.setup(
     packages=setuptools.find_packages(where="."),
     python_requires=">=3.8",
     include_package_data=True,
+    package_data={
+        "splitbregman": [
+            "thresholding/cuda/*.cu",
+            "derivative/cuda/*.cu",
+        ]
+    },
 )
