@@ -1,0 +1,30 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "splitbregman"
+version = "0.0.1"
+description = "Implementation of Split Bregman"
+authors = [
+    { name = "Kwang Eun Jang", email = "kejang@stanford.edu" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.21.0",
+    "scipy",
+    "cupy"
+]
+classifiers = [
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/kejang/splitbregman"
+Issues = "https://github.com/kejang/splitbregman/issues"

@@ -1,11 +1,26 @@
 import setuptools
+import os
+from pathlib import Path
+
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
+
+module_path = Path(os.path.abspath(__file__)).parent.absolute()
+package_name = "splitbregman"
+
+try:
+    pkg_version = version(package_name)
+except Exception:
+    pkg_version = "0.0.1"
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="splitbregman",
-    version="0.0.1",
+    name=package_name,
+    version=pkg_version,
     author="Kwang Eun Jang",
     author_email="kejang@stanford.edu",
     description="Implementation of Split Bregman",
@@ -15,18 +30,8 @@ setuptools.setup(
     project_urls={
         "Bug Tracker": "https://github.com/kejang/splitbregman/issues",
     },
-    classifiers=[
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Operating System :: OS Independent",
-    ],
     package_dir={"": "."},
     packages=setuptools.find_packages(where="."),
     python_requires=">=3.8",
-    install_requires=[
-        "numpy>=1.21.0",
-        "scipy",
-        "cupy",
-    ],
-    include_package_data=True
+    include_package_data=True,
 )
