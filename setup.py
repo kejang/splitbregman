@@ -13,7 +13,7 @@ package_name = "splitbregman"
 try:
     pkg_version = version(package_name)
 except Exception:
-    pkg_version = "0.0.3"
+    pkg_version = "0.0.4"
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
