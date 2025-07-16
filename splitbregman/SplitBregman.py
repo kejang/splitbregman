@@ -327,7 +327,7 @@ class SplitBregman:
         else:
             final_u = u
 
-        if on_checkpoint:
+        if on_checkpoint or (save_every is None and save_fraction is None):
             return final_u
         else:
             return final_u, intermediates
@@ -521,7 +521,7 @@ class SplitBregman:
         else:
             final_u = u
 
-        if on_checkpoint:
+        if on_checkpoint or (save_every is None and save_fraction is None):
             return final_u
         else:
             return final_u, intermediates
