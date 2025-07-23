@@ -1,7 +1,7 @@
 
 extern "C"
 __global__
-void dtd_x_real(
+void dtd_z_real(
     float *out, float *in,
     const unsigned int nx, const unsigned int ny, const unsigned int nz,
     const int edge
