@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "splitbregman"
-version = "0.0.6"
+version = "0.0.7"
 description = "Implementation of Split Bregman"
 authors = [{name = "Kwang Eun Jang", email = "kejang@gmail.com"}]
 readme = "README.md"
