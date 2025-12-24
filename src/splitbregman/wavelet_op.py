@@ -3,29 +3,21 @@ import cupy
 from cupyx.scipy.sparse.linalg import LinearOperator
 
 from pywt import (
-    dwt_max_level, wavedecn, waverecn, fswavedecn, fswaverecn,
-    ravel_coeffs, unravel_coeffs,
+    dwt_max_level,
+    wavedecn,
+    waverecn,
+    fswavedecn,
+    fswaverecn,
+    ravel_coeffs,
+    unravel_coeffs,
 )
 
-from .utils.utils import from_device_array, to_device_array
-
-mempool = cupy.get_default_memory_pool()
-
-
-def clean_all_gpu_mem():
-    mempool.free_all_blocks()
+from .utils import from_device_array, to_device_array
 
 
 class WaveletOperator(LinearOperator):
 
-    def __init__(
-            self,
-            sz_im,
-            wavelet,
-            gpu_id,
-            stream,
-            full=False,
-            mode='symmetric'):
+    def __init__(self, sz_im, wavelet, gpu_id, stream, full=False, mode="symmetric"):
 
         self.sz_im = sz_im
         self.wavelet = wavelet
@@ -42,25 +34,19 @@ class WaveletOperator(LinearOperator):
                 np.zeros(sz_im, dtype=np.float32),
                 self.wavelet,
                 mode=self.mode,
-                levels=self.levels
+                levels=self.levels,
             )
             self.coeffs_shape = self.fsresult.coeffs.shape
-            self.shape = (
-                self.fsresult.coeffs.size,
-                np.int64(np.prod(sz_im))
-            )
+            self.shape = (self.fsresult.coeffs.size, np.int64(np.prod(sz_im)))
         else:
             coeffs = wavedecn(
                 np.zeros(sz_im, dtype=np.float32),
                 self.wavelet,
                 mode=self.mode,
-                level=self.min_level
+                level=self.min_level,
             )
             arr, self.coeff_slices, self.coeff_shapes = ravel_coeffs(coeffs)
-            self.shape = (
-                arr.size,
-                np.int64(np.prod(sz_im))
-            )
+            self.shape = (arr.size, np.int64(np.prod(sz_im)))
 
     def _matvec(self, x):
 
@@ -69,25 +55,15 @@ class WaveletOperator(LinearOperator):
         if xp == np:
             h_x = x.reshape(self.sz_im)
         else:
-            h_x = from_device_array(
-                x, self.gpu_id, self.stream
-            ).reshape(self.sz_im)
+            h_x = from_device_array(x, self.gpu_id, self.stream).reshape(self.sz_im)
 
         if self.full:
             h_y = fswavedecn(
-                h_x,
-                self.wavelet,
-                mode=self.mode,
-                levels=self.levels
+                h_x, self.wavelet, mode=self.mode, levels=self.levels
             ).coeffs
         else:
             h_y = ravel_coeffs(
-                wavedecn(
-                    h_x,
-                    self.wavelet,
-                    mode=self.mode,
-                    level=self.min_level
-                )
+                wavedecn(h_x, self.wavelet, mode=self.mode, level=self.min_level)
             )[0]
 
         if xp == np:
@@ -104,9 +80,7 @@ class WaveletOperator(LinearOperator):
         if xp == np:
             h_x = x
         else:
-            h_x = from_device_array(
-                x, self.gpu_id, self.stream
-            )
+            h_x = from_device_array(x, self.gpu_id, self.stream)
 
         if self.full:
             self.fsresult.coeffs = h_x.reshape(self.coeffs_shape)
@@ -117,10 +91,10 @@ class WaveletOperator(LinearOperator):
                     h_x.ravel(),
                     self.coeff_slices,
                     self.coeff_shapes,
-                    output_format='wavedecn'
+                    output_format="wavedecn",
                 ),
                 wavelet=self.wavelet,
-                mode=self.mode
+                mode=self.mode,
             )
 
         if xp == np:

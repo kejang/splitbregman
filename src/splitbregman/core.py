@@ -1,14 +1,15 @@
 import logging
-from typing import Optional, Callable, List, Set, Tuple
+from typing import Optional, Callable, List, Set
 
 import numpy as np
 import cupy as cp
 from cupyx.scipy.sparse.linalg import LinearOperator, gmres, cg
 
-from .derivative.FirstDerivative import FirstDerivative
-from .thresholding.thresholding import soft_thresholding, soft_thresholding_ratio
-from .utils.utils import to_device_array, from_device_array
-from .WaveletOperator import WaveletOperator
+from gradops.finite_diff import FiniteDifferenceOp
+from thresholding.soft import soft_thresholding, soft_thresholding_ratio
+
+from .utils import to_device_array, from_device_array
+from .wavelet_op import WaveletOperator
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,7 @@ class SplitBregman:
         self.gpu_id = model.gpu_id
         self.stream = model.stream
         self.economize_gpu = economize_gpu
-
-        is_complex = np.iscomplexobj(np.ones((1,), dtype=model.dtype))
+        self.dtype = np.dtype(model.dtype)
 
         if len(sz_im) == 1:
             directions = ["x"]
@@ -83,12 +83,12 @@ class SplitBregman:
             self.ndim = 3
 
         self.Ds = [
-            FirstDerivative(
+            FiniteDifferenceOp(
                 direction=direction,
                 sz_im=sz_im,
+                dtype=self.dtype,
                 gpu_id=self.gpu_id,
                 stream=self.stream,
-                is_complex=is_complex,
                 edge=edge,
                 is_normal=False,
             )
@@ -96,21 +96,17 @@ class SplitBregman:
         ]
 
         self.DtDs = [
-            FirstDerivative(
+            FiniteDifferenceOp(
                 direction=direction,
                 sz_im=sz_im,
+                dtype=self.dtype,
                 gpu_id=self.gpu_id,
                 stream=self.stream,
-                is_complex=is_complex,
                 edge=edge,
                 is_normal=True,
             )
             for direction in directions
         ]
-
-    def __del__(self):
-        self.Ds = None
-        self.DtDs = None
 
     def run(
         self,

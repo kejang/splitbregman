@@ -1,35 +1,28 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel"
-]
+requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "splitbregman"
 version = "0.0.6"
 description = "Implementation of Split Bregman"
-authors = [
-    { name = "Kwang Eun Jang", email = "kejang@stanford.edu" }
-]
+authors = [{name = "Kwang Eun Jang", email = "kejang@gmail.com"}]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.21.0",
     "scipy",
-    "cupy"
+    "PyWavelets",
 ]
-classifiers = [
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Operating System :: OS Independent"
-]
+
+[project.optional-dependencies]
+extra = ["gradops", "thresholding"]
 
 [tool.setuptools]
-include-package-data = true
+package-dir = {"" = "src"}
 
-[tool.setuptools.package-data]
-splitbregman = ["thresholding/cuda/*.cu", "derivative/cuda/*.cu"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [project.urls]
 Homepage = "https://github.com/kejang/splitbregman"

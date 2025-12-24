@@ -1,2 +1,0 @@
-include ./noncartrec/derivative/cuda/*.cu
-include ./noncartrec/thresholding/cuda/*.cu

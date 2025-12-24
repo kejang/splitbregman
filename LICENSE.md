@@ -1,4 +1,4 @@
-Copyright (c) Kwang Eun Jang
+Copyright (c) 2025 Kwang Eun Jang
 
 # Sustainable Use License
 
