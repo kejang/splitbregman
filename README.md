@@ -12,9 +12,9 @@ Sustainable Use License from [n8n](https://github.com/n8n-io/n8n).
 - NumPy
 - SciPy
 - PyWavelets
-- **CuPy (required, not installed automatically by this package)**  
+- CuPy (required, not installed automatically by this package)
   Install the CuPy package that matches your CUDA version (e.g., `cupy-cuda12x`, `cupy-cuda11x`, etc.).
-- **gradops** (required; from GitHub)
+- [gradops](https://github.com/kejang/gradops) (required; from GitHub)
 
 ## Installation
 
