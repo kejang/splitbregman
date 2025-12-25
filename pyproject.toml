@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-extra = ["gradops", "thresholding"]
+extra = ["gradops",]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

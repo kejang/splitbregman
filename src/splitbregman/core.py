@@ -6,8 +6,8 @@ import cupy as cp
 from cupyx.scipy.sparse.linalg import LinearOperator, gmres, cg
 
 from gradops.finite_diff import FiniteDifferenceOp
-from thresholding.soft import soft_thresholding, soft_thresholding_ratio
 
+from .thresholding import soft_thresholding, soft_thresholding_ratio
 from .utils import to_device_array, from_device_array
 from .wavelet_op import WaveletOperator
 
