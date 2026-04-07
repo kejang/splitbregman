@@ -66,16 +66,16 @@ class _GradModel(LinearOperator):
 class SplitBregman:
     def __init__(self, model, sz_im, edge=False, economize_gpu=False):
         self.model = model
-        self.sz_im = sz_im
+        self.sz_im = tuple(int(s) for s in sz_im)
         self.gpu_id = model.gpu_id
         self.stream = model.stream
         self.economize_gpu = economize_gpu
         self.dtype = np.dtype(model.dtype)
 
-        if len(sz_im) == 1:
+        if len(self.sz_im) == 1:
             directions = ["x"]
             self.ndim = 1
-        elif len(sz_im) == 2:
+        elif len(self.sz_im) == 2:
             directions = ["x", "y"]
             self.ndim = 2
         else:
@@ -85,7 +85,7 @@ class SplitBregman:
         self.Ds = [
             FiniteDifferenceOp(
                 direction=direction,
-                sz_im=sz_im,
+                sz_im=self.sz_im,
                 dtype=self.dtype,
                 gpu_id=self.gpu_id,
                 stream=self.stream,
@@ -98,7 +98,7 @@ class SplitBregman:
         self.DtDs = [
             FiniteDifferenceOp(
                 direction=direction,
-                sz_im=sz_im,
+                sz_im=self.sz_im,
                 dtype=self.dtype,
                 gpu_id=self.gpu_id,
                 stream=self.stream,
@@ -107,6 +107,27 @@ class SplitBregman:
             )
             for direction in directions
         ]
+        self.set_size(self.sz_im)
+
+    def set_size(self, sz_im):
+        sz_im = tuple(int(s) for s in sz_im)
+        if len(sz_im) != self.ndim:
+            raise ValueError(
+                f"SplitBregman size ndim mismatch: got {len(sz_im)}, expected {self.ndim}."
+            )
+
+        self.sz_im = sz_im
+        for D in self.Ds:
+            D.set_size(sz_im)
+        for DtD in self.DtDs:
+            DtD.set_size(sz_im)
+
+        if hasattr(self.model, "set_size"):
+            self.model.set_size(sz_im)
+        else:
+            logger.warning(
+                "Model does not have set_size method. Make sure the model is compatible with the new size."
+            )
 
     def run(
         self,
